@@ -6,6 +6,22 @@ var debug        = require('debug')('rpi-gpio');
 var Epoll        = require('epoll').Epoll;
 
 var PATH = '/sys/class/gpio';
+// from https://gist.github.com/jperkin/c37a574379ef71e339361954be96be12
+var DEVICE_TREE_MODEL = {
+    'Raspberry Pi Model B': 'v1',
+    'Raspberry Pi Model B Rev 1': 'v1',
+    'Raspberry Pi Model B Plus Rev 1.2': 'v2',
+    'Raspberry Pi Compute Module Rev 1.0': 'v2',
+    'Raspberry Pi Zero W Rev 1.1': 'v2',
+    'Raspberry Pi 2 Model B Rev 1.1': 'v2',
+    'Raspberry Pi Compute Module 3 Rev 1.0': 'v2',
+    'Raspberry Pi Compute Module 3 Plus Rev 1.0': 'v2',
+    'Raspberry Pi 2 Model B Rev 1.2': 'v2',
+    'Raspberry Pi 3 Model B Plus Rev 1.3': 'v2',
+    'Raspberry Pi 4 Model B Rev 1.1': 'v2',
+    'Raspberry Pi 4 Model B Rev 1.4': 'v2',
+    'Radxa ROCK 5B': 'rock5b'
+}
 var PINS = {
     v1: {
         // 1: 3.3v
@@ -78,6 +94,50 @@ var PINS = {
         '38': 20,
         // 39: ground
         '40': 21
+    },
+    rock5b: {
+        // 1: 3.3v
+        // 2: 5v
+        '3':  139,
+        // 4: 5v
+        '5':  138,
+        // 6: ground
+        '7':  115,
+        '8':  13,
+        // 9: ground
+        '10': 14,
+        '11': 113,
+        '12': 109,
+        '13': 111,
+        // 14: ground
+        '15': 112,
+        '16': 100,
+        // 17: 3.3v
+        '18': 148,
+        '19': 42,
+        // 20: ground
+        '21': 41,
+        // '22': ,
+        '23': 43,
+        '24': 44,
+        // 25: ground
+        '26': 45,
+
+        // Model B+ pins
+        // 27: 150 ID_SD
+        // 28: ID_SC
+        '29': 63,
+        // 30: ground
+        '31': 47,
+        '32': 114,
+        '33': 103,
+        // 34: ground
+        '35': 110,
+        '36': 105,
+        // '37': ,
+        '38': 106,
+        // 39: ground
+        '40': 107
     }
 };
 
@@ -356,25 +416,21 @@ function Gpio() {
         }
 
         return new Promise(function(resolve, reject) {
-            fs.readFile('/proc/cpuinfo', 'utf8', function(err, data) {
+            fs.readFile('/proc/device-tree/model', 'utf8', function(err, data) {
                 if (err) {
                     return reject(err);
                 }
-
-                // Match the last 4 digits of the number following "Revision:"
-                var match = data.match(/Revision\s*:\s*[0-9a-f]*([0-9a-f]{4})/);
-
-                if (!match) {
-                    var errorMessage = 'Unable to match Revision in /proc/cpuinfo: ' + data;
+                data = data.slice(0, data.length-1) // prepare for hasOwnproperty, last character has to be removed.
+                if(!DEVICE_TREE_MODEL.hasOwnProperty(data)){
+                    var errorMessage = 'Unable to match Revision in /proc/device-tree/model: ' + data;
                     return reject(new Error(errorMessage));
                 }
 
-                var revisionNumber = parseInt(match[1], 16);
-                var pinVersion = (revisionNumber < 4) ? 'v1' : 'v2';
+                var pinVersion = DEVICE_TREE_MODEL[data]
 
                 debug(
-                    'seen hardware revision %d; using pin mode %s',
-                    revisionNumber,
+                    'seen hardware model %d; using pin mode %s',
+                    data,
                     pinVersion
                 );
 
